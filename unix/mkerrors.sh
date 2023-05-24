@@ -23,7 +23,7 @@ if [[ "$GOOS" = "linux" ]] && [[ "$GOLANG_SYS_BUILD" != "docker" ]]; then
 	exit 1
 fi
 
-if [[ "$GOOS" = "aix" ]]; then
+if [[ "$GOOS" = "aix" ]] || [[ "$GOOS" = "solaris" ]]; then
 	CC=${CC:-gcc}
 else
 	CC=${CC:-cc}
