@@ -82,6 +82,10 @@ struct sockaddr_any {
 // https://github.com/kaizawa/tuntap/blob/master/if_tun.h#L91-L93
 #define TUNNEWPPA	(('T'<<16) | 0x0001)
 #define TUNSETPPA	(('T'<<16) | 0x0002)
+
+#ifndef FILE_TRUNC
+#define FILE_TRUNC 0x00100000
+#endif
 */
 import "C"
 
