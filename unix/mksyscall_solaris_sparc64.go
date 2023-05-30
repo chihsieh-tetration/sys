@@ -73,7 +73,14 @@ import (
 )
 
 var (
-	tags = flag.String("tags", "", "build tags")
+	all        = flag.Bool("all", false, "all supported build tags")
+	tags       = flag.String("tags", "", "build tags")
+	hasSolaris = false
+	hasIllumos = false
+	hasAMD64   = false
+	hasSPARC64 = false
+	hasGC      = false
+	hasGCCGO   = false
 )
 
 // cmdLine returns this programs's commandline arguments
@@ -97,9 +104,69 @@ type Param struct {
 	Type string
 }
 
+// validateBuildTags parse tags and check if it is a valid/supported combination.
+func validateBuildTags() bool {
+	buildTags := strings.Split(*tags, ",")
+	if len(buildTags) < 3 {
+		fmt.Fprintln(os.Stderr, "invalid build tags: ", *tags)
+		return false
+	}
+
+	osTag := buildTags[0]
+	archTag := buildTags[1]
+	compilerTag := buildTags[2]
+
+	switch osTag {
+	case "solaris":
+		hasSolaris = true
+	case "illumos":
+		hasIllumos = true
+	default:
+		fmt.Fprintln(os.Stderr, "unsupported OS: ", osTag)
+		return false
+	}
+
+	switch archTag {
+	case "amd64":
+		hasAMD64 = true
+	case "sparc64":
+		hasSPARC64 = true
+	default:
+		fmt.Fprintln(os.Stderr, "unsupported Architecture: ", archTag)
+		return false
+	}
+
+	switch compilerTag {
+	case "gc":
+		hasGC = true
+	case "gccgo":
+		hasGCCGO = true
+	default:
+		fmt.Fprintln(os.Stderr, "unsupported Go compiler: ", compilerTag)
+		return false
+	}
+
+	if osTag == "illumos" && archTag == "sparc64" {
+		// illumos already dropped sparc64 support.
+		fmt.Fprintln(os.Stderr, "unsupported combination: ", *tags)
+		return false
+	}
+	if osTag == "solaris" && archTag == "sparc64" && compilerTag == "gc" {
+		// gc is not supported on solaris/sparc64 at this moment.
+		fmt.Fprintln(os.Stderr, "unsupported combination: ", *tags)
+		return false
+	}
+
+	return true
+}
+
 // usage prints the program usage
 func usage() {
-	fmt.Fprintf(os.Stderr, "usage: go run mksyscall_solaris_sparc64.go [-b32 | -l32] [-tags x,y] [file ...]\n")
+	fmt.Fprintf(os.Stderr, "usage: go run mksyscall_solaris_sparc64.go [-all] [-tags x,y,z] [file ...]\n")
+	fmt.Fprintln(os.Stderr, "all: if defined, will generate all supported combinations and ignore tags")
+	fmt.Fprintln(os.Stderr, "x: target OS, must be solaris or illumos")
+	fmt.Fprintln(os.Stderr, "y: target CPU arch, must be amd64 or sparc64")
+	fmt.Fprintln(os.Stderr, "z: target Go compiler, must be gc or gccgo")
 	os.Exit(1)
 }
 
@@ -127,6 +194,17 @@ func main() {
 	flag.Parse()
 	if len(flag.Args()) <= 0 {
 		fmt.Fprintf(os.Stderr, "no files to parse provided\n")
+		usage()
+	}
+	if *all {
+		hasSolaris = true
+		hasIllumos = true
+		hasAMD64 = true
+		hasSPARC64 = true
+		hasGC = true
+		hasGCCGO = true
+	} else if !validateBuildTags() {
+		fmt.Fprintln(os.Stderr, "wrong combination of build tags: ", *tags)
 		usage()
 	}
 
