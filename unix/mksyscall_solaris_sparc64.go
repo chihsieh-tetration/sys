@@ -1,4 +1,4 @@
-// Copyright 2019 The Go Authors. All rights reserved.
+// Copyright 2023 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -7,7 +7,7 @@
 
 /*
 This program reads a file containing function prototypes
-(like syscall_aix.go) and generates system call bodies.
+(like syscall_solaris.go) and generates system call bodies.
 The prototypes are marked by lines beginning with "//sys"
 and read like func declarations if //sys is replaced by func, but:
 	* The parameter lists must give a name for each argument.
@@ -18,17 +18,17 @@ and read like func declarations if //sys is replaced by func, but:
 	* If go func name needs to be different than its libc name,
 	* or the function is not in libc, name could be specified
 	* at the end, after "=" sign, like
-	  //sys	getsockopt(s int, level int, name int, val uintptr, vallen *_Socklen) (err error) = libsocket.getsockopt
+	 //sys	getsockopt(s int, level int, name int, val unsafe.Pointer, vallen *_Socklen) (err error) = libsocket.__xnet_getsockopt
 
 
 This program will generate three files and handle both gc and gccgo implementation:
-  - zsyscall_aix_ppc64.go: the common part of each implementation (error handler, pointer creation)
-  - zsyscall_aix_ppc64_gc.go: gc part with //go_cgo_import_dynamic and a call to syscall6
-  - zsyscall_aix_ppc64_gccgo.go: gccgo part with C function and conversion to C type.
+  - zsyscall_solaris_sparc64.go: the common part of each implementation (error handler, pointer creation)
+  - zsyscall_solaris_sparc64_gc.go: gc part with //go_cgo_import_dynamic and a call to syscall6
+  - zsyscall_solaris_sparc64_gccgo.go: gccgo part with C function and conversion to C type.
 
  The generated code looks like this
 
-zsyscall_aix_ppc64.go
+zsyscall_solaris_sparc64.go
 func asyscall(...) (n int, err error) {
 	 // Pointer Creation
 	 r1, e1 := callasyscall(...)
@@ -37,7 +37,7 @@ func asyscall(...) (n int, err error) {
 	 return
 }
 
-zsyscall_aix_ppc64_gc.go
+zsyscall_solaris_sparc64_gc.go
 //go:cgo_import_dynamic libc_asyscall asyscall "libc.a/shr_64.o"
 //go:linkname libc_asyscall libc_asyscall
 var asyscall syscallFunc
@@ -47,7 +47,7 @@ func callasyscall(...) (r1 uintptr, e1 Errno) {
 	 return
 }
 
-zsyscall_aix_ppc64_ggcgo.go
+zsyscall_solaris_sparc64_ggcgo.go
 
 // int asyscall(...)
 
@@ -73,15 +73,15 @@ import (
 )
 
 var (
-	b32  = flag.Bool("b32", false, "32bit big-endian")
-	l32  = flag.Bool("l32", false, "32bit little-endian")
-	aix  = flag.Bool("aix", false, "aix")
-	tags = flag.String("tags", "", "build tags")
+	b32     = flag.Bool("b32", false, "32bit big-endian")
+	l32     = flag.Bool("l32", false, "32bit little-endian")
+	solaris = flag.Bool("solaris", false, "solaris")
+	tags    = flag.String("tags", "", "build tags")
 )
 
 // cmdLine returns this programs's commandline arguments
 func cmdLine() string {
-	return "go run mksyscall_aix_ppc64.go " + strings.Join(os.Args[1:], " ")
+	return "go run mksyscall_solaris_sparc64.go " + strings.Join(os.Args[1:], " ")
 }
 
 // goBuildTags returns build tags in the go:build format.
@@ -102,7 +102,7 @@ type Param struct {
 
 // usage prints the program usage
 func usage() {
-	fmt.Fprintf(os.Stderr, "usage: go run mksyscall_aix_ppc64.go [-b32 | -l32] [-tags x,y] [file ...]\n")
+	fmt.Fprintf(os.Stderr, "usage: go run mksyscall_solaris_sparc64.go [-b32 | -l32] [-tags x,y] [file ...]\n")
 	os.Exit(1)
 }
 
@@ -524,8 +524,8 @@ func main() {
 
 	}
 
-	// Print zsyscall_aix_ppc64.go
-	err := ioutil.WriteFile("zsyscall_aix_ppc64.go",
+	// Print zsyscall_solaris_sparc64.go
+	err := ioutil.WriteFile("zsyscall_solaris_sparc64.go",
 		[]byte(fmt.Sprintf(srcTemplate1, cmdLine(), goBuildTags(), plusBuildTags(), pack, imp, textcommon)),
 		0644)
 	if err != nil {
@@ -533,10 +533,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Print zsyscall_aix_ppc64_gc.go
+	// Print zsyscall_solaris_sparc64_gc.go
 	vardecls := "\t" + strings.Join(vars, ",\n\t")
 	vardecls += " syscallFunc"
-	err = ioutil.WriteFile("zsyscall_aix_ppc64_gc.go",
+	err = ioutil.WriteFile("zsyscall_solaris_sparc64_gc.go",
 		[]byte(fmt.Sprintf(srcTemplate2, cmdLine(), goBuildTags(), plusBuildTags(), pack, imp, dynimports, linknames, vardecls, textgc)),
 		0644)
 	if err != nil {
@@ -544,8 +544,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Print zsyscall_aix_ppc64_gccgo.go
-	err = ioutil.WriteFile("zsyscall_aix_ppc64_gccgo.go",
+	// Print zsyscall_solaris_sparc64_gccgo.go
+	err = ioutil.WriteFile("zsyscall_solaris_sparc64_gccgo.go",
 		[]byte(fmt.Sprintf(srcTemplate3, cmdLine(), goBuildTags(), plusBuildTags(), pack, cExtern, imp, textgccgo)),
 		0644)
 	if err != nil {
@@ -591,7 +591,7 @@ var (
 %s
 )
 
-// Implemented in runtime/syscall_aix.go.
+// Implemented in runtime/syscall_solaris.go.
 func rawSyscall6(trap, nargs, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err Errno)
 func syscall6(trap, nargs, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err Errno)
 
