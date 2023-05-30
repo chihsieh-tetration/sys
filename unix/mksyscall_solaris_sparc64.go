@@ -73,10 +73,7 @@ import (
 )
 
 var (
-	b32     = flag.Bool("b32", false, "32bit big-endian")
-	l32     = flag.Bool("l32", false, "32bit little-endian")
-	solaris = flag.Bool("solaris", false, "solaris")
-	tags    = flag.String("tags", "", "build tags")
+	tags = flag.String("tags", "", "build tags")
 )
 
 // cmdLine returns this programs's commandline arguments
@@ -131,13 +128,6 @@ func main() {
 	if len(flag.Args()) <= 0 {
 		fmt.Fprintf(os.Stderr, "no files to parse provided\n")
 		usage()
-	}
-
-	endianness := ""
-	if *b32 {
-		endianness = "big-endian"
-	} else if *l32 {
-		endianness = "little-endian"
 	}
 
 	pack := ""
@@ -372,8 +362,6 @@ func main() {
 					argsgc = append(argsgc, fmt.Sprintf("_p%d", n), fmt.Sprintf("uintptr(_lenp%d)", n))
 					argsgccgo = append(argsgccgo, fmt.Sprintf("C.uintptr_t(_p%d)", n), fmt.Sprintf("C.size_t(_lenp%d)", n))
 					n++
-				} else if p.Type == "int64" && endianness != "" {
-					fmt.Fprintf(os.Stderr, path+":"+funct+" uses int64 with 32 bits mode. Case not yet implemented\n")
 				} else if p.Type == "bool" {
 					fmt.Fprintf(os.Stderr, path+":"+funct+" uses bool. Case not yet implemented\n")
 				} else if regexp.MustCompile(`^_`).FindStringSubmatch(p.Type) != nil || p.Type == "unsafe.Pointer" {
