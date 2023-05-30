@@ -31,18 +31,18 @@ This program will generate three files and handle both gc and gccgo implementati
 zsyscall_solaris_sparc64.go
 func asyscall(...) (n int, err error) {
 	 // Pointer Creation
-	 r1, e1 := procasyscall(...)
+	 r1, e1 := callasyscall(...)
 	 // Type Conversion
 	 // Error Handler
 	 return
 }
 
 zsyscall_solaris_sparc64_gc.go
-//go:cgo_import_dynamic libc_asyscall asyscall "libc.so"
-//go:linkname procasyscall libc_asyscall
+//go:cgo_import_dynamic libc_asyscall asyscall "libc.a/shr_64.o"
+//go:linkname libc_asyscall libc_asyscall
 var asyscall syscallFunc
 
-func procasyscall(...) (r1 uintptr, e1 Errno) {
+func callasyscall(...) (r1 uintptr, e1 Errno) {
 	 r1, _, e1 = syscall6(uintptr(unsafe.Pointer(&libc_asyscall)), "nb_args", ... )
 	 return
 }
@@ -53,7 +53,7 @@ zsyscall_solaris_sparc64_ggcgo.go
 
 import "C"
 
-func procasyscall(...) (r1 uintptr, e1 Errno) {
+func callasyscall(...) (r1 uintptr, e1 Errno) {
 	 r1 = uintptr(C.asyscall(...))
 	 e1 = syscall.GetErrno()
 	 return
