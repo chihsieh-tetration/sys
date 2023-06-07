@@ -104,6 +104,20 @@ type Param struct {
 	Type string
 }
 
+func notSupportedTags(osTag, archTag, compilerTag string) bool {
+	if osTag == "illumos" && archTag == "sparc64" {
+		// illumos already dropped sparc64 support.
+		fmt.Fprintln(os.Stderr, "unsupported combination: ", *tags)
+		return true
+	}
+	if osTag == "solaris" && archTag == "sparc64" && compilerTag == "gc" {
+		// gc is not supported on solaris/sparc64 at this moment.
+		fmt.Fprintln(os.Stderr, "unsupported combination: ", *tags)
+		return true
+	}
+	return false
+}
+
 // validateBuildTags parse tags and check if it is a valid/supported combination.
 func validateBuildTags() bool {
 	buildTags := strings.Split(*tags, ",")
@@ -155,18 +169,7 @@ func validateBuildTags() bool {
 		return false
 	}
 
-	if osTag == "illumos" && archTag == "sparc64" {
-		// illumos already dropped sparc64 support.
-		fmt.Fprintln(os.Stderr, "unsupported combination: ", *tags)
-		return false
-	}
-	if osTag == "solaris" && archTag == "sparc64" && compilerTag == "gc" {
-		// gc is not supported on solaris/sparc64 at this moment.
-		fmt.Fprintln(os.Stderr, "unsupported combination: ", *tags)
-		return false
-	}
-
-	return true
+	return !notSupportedTags(osTag, archTag, compilerTag)
 }
 
 // usage prints the program usage
