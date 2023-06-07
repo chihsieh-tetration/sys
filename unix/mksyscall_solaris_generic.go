@@ -212,7 +212,7 @@ func main() {
 	pack := ""
 	// GCCGO
 	textgccgo := ""
-	cExtern := "/*\n#include <stdint.h>\n"
+	cExtern := "/*\n#include <stdint.h>\n#define _SVID_GETTOD\n"
 	// GC
 	textgc := ""
 	dynimports := ""
