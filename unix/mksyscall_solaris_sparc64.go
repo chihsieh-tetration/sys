@@ -66,7 +66,6 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"regexp"
 	"strings"
@@ -86,16 +85,6 @@ var (
 // cmdLine returns this programs's commandline arguments
 func cmdLine() string {
 	return "go run mksyscall_solaris_sparc64.go " + strings.Join(os.Args[1:], " ")
-}
-
-// goBuildTags returns build tags in the go:build format.
-func goBuildTags() string {
-	return strings.ReplaceAll(*tags, ",", " && ")
-}
-
-// plusBuildTags returns build tags in the +build format.
-func plusBuildTags() string {
-	return *tags
 }
 
 // Param is function parameter
@@ -589,33 +578,64 @@ func main() {
 
 	}
 
-	// Print zsyscall_solaris_sparc64.go
-	err := ioutil.WriteFile("zsyscall_solaris_sparc64.go",
-		[]byte(fmt.Sprintf(srcTemplateCommon, cmdLine(), goBuildTags(), plusBuildTags(), pack, imp, textcommon)),
-		0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, err.Error())
-		os.Exit(1)
-	}
-
-	// Print zsyscall_solaris_sparc64_gc.go
 	vardecls := "\t" + strings.Join(vars, ",\n\t")
 	vardecls += " syscallFunc"
-	err = ioutil.WriteFile("zsyscall_solaris_sparc64_gc.go",
-		[]byte(fmt.Sprintf(srcTemplateGC, cmdLine(), goBuildTags(), plusBuildTags(), pack, imp, dynimports, linknames, vardecls, textgc)),
-		0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, err.Error())
-		os.Exit(1)
+	writeGeneratedCodes(pack, imp, cExtern, dynimports, linknames, vardecls, textcommon, textgc, textgccgo)
+}
+
+func writeGeneratedCodes(pack, imp, cExtern, dynimports, linknames, vardecls, textcommon, textgc, textgccgo string) {
+	var osTags []string
+	if hasIllumos {
+		osTags = append(osTags, "illumos")
+	}
+	if hasSolaris {
+		osTags = append(osTags, "solaris")
 	}
 
-	// Print zsyscall_solaris_sparc64_gccgo.go
-	err = ioutil.WriteFile("zsyscall_solaris_sparc64_gccgo.go",
-		[]byte(fmt.Sprintf(srcTemplateGCCGO, cmdLine(), goBuildTags(), plusBuildTags(), pack, cExtern, imp, textgccgo)),
-		0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, err.Error())
-		os.Exit(1)
+	var archTags []string
+	if hasAMD64 {
+		archTags = append(archTags, "amd64")
+	}
+	if hasSPARC64 {
+		archTags = append(archTags, "sparc64")
+	}
+
+	for _, goos := range osTags {
+		for _, goarch := range archTags {
+			goBuildTag := fmt.Sprintf("%s && %s", goos, goarch)
+			plusBuildTag := fmt.Sprintf("%s,%s", goos, goarch)
+			fileNameCommon := fmt.Sprintf("zsyscall_%s_%s.go", goos, goarch)
+			err := os.WriteFile(
+				fileNameCommon,
+				[]byte(fmt.Sprintf(srcTemplateCommon, cmdLine(), goBuildTag, plusBuildTag, pack, imp, textcommon)),
+				0644)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, err.Error())
+				os.Exit(1)
+			}
+			if hasGC && !notSupportedTags(goos, goarch, "gc") {
+				fileNameGC := fmt.Sprintf("zsyscall_%s_%s_gc.go", goos, goarch)
+				err := os.WriteFile(
+					fileNameGC,
+					[]byte(fmt.Sprintf(srcTemplateGC, cmdLine(), goBuildTag, plusBuildTag, pack, imp, dynimports, linknames, vardecls, textgc)),
+					0644)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, err.Error())
+					os.Exit(1)
+				}
+			}
+			if hasGCCGO && !notSupportedTags(goos, goarch, "gccgo") {
+				fileNameGCCGO := fmt.Sprintf("zsyscall_%s_%s_gccgo.go", goos, goarch)
+				err := os.WriteFile(
+					fileNameGCCGO,
+					[]byte(fmt.Sprintf(srcTemplateGCCGO, cmdLine(), goBuildTag, plusBuildTag, pack, cExtern, imp, textgccgo)),
+					0644)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, err.Error())
+					os.Exit(1)
+				}
+			}
+		}
 	}
 }
 
@@ -657,8 +677,8 @@ var (
 )
 
 // Implemented in runtime/syscall_solaris.go.
-func rawSyscall6(trap, nargs, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err Errno)
-func syscall6(trap, nargs, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err Errno)
+func rawSysvicall6(trap, nargs, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err Errno)
+func sysvicall6(trap, nargs, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err Errno)
 
 %s
 `
