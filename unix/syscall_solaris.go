@@ -21,12 +21,6 @@ import (
 	"unsafe"
 )
 
-// Implemented in runtime/syscall_solaris.go.
-type syscallFunc uintptr
-
-func rawSysvicall6(trap, nargs, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err syscall.Errno)
-func sysvicall6(trap, nargs, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err syscall.Errno)
-
 // SockaddrDatalink implements the Sockaddr interface for AF_LINK type sockets.
 type SockaddrDatalink struct {
 	Family uint16
@@ -347,23 +341,10 @@ func UtimesNanoAt(dirfd int, path string, ts []Timespec, flags int) error {
 //sys	fcntl(fd int, cmd int, arg int) (val int, err error)
 
 // FcntlInt performs a fcntl syscall on fd with the provided command and argument.
-func FcntlInt(fd uintptr, cmd, arg int) (int, error) {
-	valptr, _, errno := sysvicall6(uintptr(unsafe.Pointer(&procfcntl)), 3, uintptr(fd), uintptr(cmd), uintptr(arg), 0, 0, 0)
-	var err error
-	if errno != 0 {
-		err = errno
-	}
-	return int(valptr), err
-}
+//sys	FcntlInt(fd uintptr, cmd int, arg int) (r int,err error) = fcntl
 
 // FcntlFlock performs a fcntl syscall for the F_GETLK, F_SETLK or F_SETLKW command.
-func FcntlFlock(fd uintptr, cmd int, lk *Flock_t) error {
-	_, _, e1 := sysvicall6(uintptr(unsafe.Pointer(&procfcntl)), 3, uintptr(fd), uintptr(cmd), uintptr(unsafe.Pointer(lk)), 0, 0, 0)
-	if e1 != 0 {
-		return e1
-	}
-	return nil
-}
+//sys	FcntlFlock(fd uintptr, cmd int, lk *Flock_t) (err error) = fcntl
 
 //sys	futimesat(fildes int, path *byte, times *[2]Timeval) (err error)
 
@@ -697,24 +678,8 @@ func Sendfile(outfd int, infd int, offset *int64, count int) (written int, err e
 //sysnb	getpeername(fd int, rsa *RawSockaddrAny, addrlen *_Socklen) (err error) = libsocket.getpeername
 //sys	setsockopt(s int, level int, name int, val unsafe.Pointer, vallen uintptr) (err error) = libsocket.setsockopt
 //sys	recvfrom(fd int, p []byte, flags int, from *RawSockaddrAny, fromlen *_Socklen) (n int, err error) = libsocket.recvfrom
-
-func readlen(fd int, buf *byte, nbuf int) (n int, err error) {
-	r0, _, e1 := sysvicall6(uintptr(unsafe.Pointer(&procread)), 3, uintptr(fd), uintptr(unsafe.Pointer(buf)), uintptr(nbuf), 0, 0, 0)
-	n = int(r0)
-	if e1 != 0 {
-		err = e1
-	}
-	return
-}
-
-func writelen(fd int, buf *byte, nbuf int) (n int, err error) {
-	r0, _, e1 := sysvicall6(uintptr(unsafe.Pointer(&procwrite)), 3, uintptr(fd), uintptr(unsafe.Pointer(buf)), uintptr(nbuf), 0, 0, 0)
-	n = int(r0)
-	if e1 != 0 {
-		err = e1
-	}
-	return
-}
+//sys	readlen(fd int, p *byte, np int) (n int, err error) = read
+//sys	writelen(fd int, p *byte, np int) (n int, err error) = write
 
 var mapper = &mmapper{
 	active: make(map[*byte][]byte),
