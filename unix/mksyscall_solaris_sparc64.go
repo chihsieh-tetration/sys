@@ -240,8 +240,10 @@ func main() {
 			if p := regexp.MustCompile(`^package (\S+)$`).FindStringSubmatch(t); p != nil && pack == "" {
 				pack = p[1]
 			}
-			nonblock := regexp.MustCompile(`^\/\/sysnb\t`).FindStringSubmatch(t)
-			if regexp.MustCompile(`^\/\/sys\t`).FindStringSubmatch(t) == nil && nonblock == nil {
+			gcAsm := "sysvicall6"
+			if strings.HasPrefix(t, "//sysnb") {
+				gcAsm = "rawSysvicall6"
+			} else if !strings.HasPrefix(t, "//sys") {
 				continue
 			}
 
@@ -374,16 +376,13 @@ func main() {
 			}
 			// GC Library name
 			if modname == "" {
-				modname = "libc.a/shr_64.o"
-			} else {
-				fmt.Fprintf(os.Stderr, "%s: only syscall using libc are available\n", funct)
-				os.Exit(1)
+				modname = "libc"
 			}
-			sysvarname := fmt.Sprintf("libc_%s", sysname)
+			sysvarname := fmt.Sprintf("%s_%s", modname, sysname)
 
 			if !onlyCommon {
 				// GC Runtime import of function to allow cross-platform builds.
-				dynimports += fmt.Sprintf("//go:cgo_import_dynamic %s %s \"%s\"\n", sysvarname, sysname, modname)
+				dynimports += fmt.Sprintf("//go:cgo_import_dynamic %s %s \"%s.so\"\n", sysvarname, sysname, modname)
 				// GC Link symbol to proc address variable.
 				linknames += fmt.Sprintf("//go:linkname %s %s\n", sysvarname, sysvarname)
 				// GC Library proc address variable.
@@ -417,18 +416,11 @@ func main() {
 					argscall = append(argscall, fmt.Sprintf("%s uintptr", p.Name))
 					argsgc = append(argsgc, p.Name)
 					argsgccgo = append(argsgccgo, fmt.Sprintf("C.uintptr_t(%s)", p.Name))
-				} else if p.Type == "string" && errvar != "" {
-					textcommon += fmt.Sprintf("\tvar _p%d %s\n", n, strconvtype)
-					textcommon += fmt.Sprintf("\t_p%d, %s = %s(%s)\n", n, errvar, strconvfunc, p.Name)
-					textcommon += fmt.Sprintf("\tif %s != nil {\n\t\treturn\n\t}\n", errvar)
-
-					argscommon = append(argscommon, fmt.Sprintf("uintptr(unsafe.Pointer(_p%d))", n))
-					argscall = append(argscall, fmt.Sprintf("_p%d uintptr ", n))
-					argsgc = append(argsgc, fmt.Sprintf("_p%d", n))
-					argsgccgo = append(argsgccgo, fmt.Sprintf("C.uintptr_t(_p%d)", n))
-					n++
 				} else if p.Type == "string" {
-					fmt.Fprintf(os.Stderr, path+":"+funct+" uses string arguments, but has no error return\n")
+					if errvar == "" {
+						// FIXME: should we exit or continue?
+						fmt.Fprintf(os.Stderr, path+":"+funct+" uses string arguments, but has no error return\n")
+					}
 					textcommon += fmt.Sprintf("\tvar _p%d %s\n", n, strconvtype)
 					textcommon += fmt.Sprintf("\t_p%d, %s = %s(%s)\n", n, errvar, strconvfunc, p.Name)
 					textcommon += fmt.Sprintf("\tif %s != nil {\n\t\treturn\n\t}\n", errvar)
@@ -552,11 +544,6 @@ func main() {
 			callProto := fmt.Sprintf("func call%s(%s) (r1 uintptr, e1 Errno) {\n", sysname, strings.Join(argscall, ", "))
 
 			// GC function generation
-			asm := "syscall6"
-			if nonblock != nil {
-				asm = "rawSyscall6"
-			}
-
 			if len(argsgc) <= 6 {
 				for len(argsgc) < 6 {
 					argsgc = append(argsgc, "0")
@@ -566,7 +553,7 @@ func main() {
 				os.Exit(1)
 			}
 			argsgclist := strings.Join(argsgc, ", ")
-			callgc := fmt.Sprintf("%s(uintptr(unsafe.Pointer(&%s)), %d, %s)", asm, sysvarname, nargs, argsgclist)
+			callgc := fmt.Sprintf("%s(uintptr(unsafe.Pointer(&%s)), %d, %s)", gcAsm, sysvarname, nargs, argsgclist)
 
 			textgc += callProto
 			textgc += fmt.Sprintf("\tr1, _, e1 = %s\n", callgc)
