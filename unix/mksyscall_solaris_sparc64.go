@@ -121,6 +121,9 @@ func validateBuildTags() bool {
 		hasSolaris = true
 	case "illumos":
 		hasIllumos = true
+	case "all":
+		hasSolaris = true
+		hasIllumos = true
 	default:
 		fmt.Fprintln(os.Stderr, "unsupported OS: ", osTag)
 		return false
@@ -131,6 +134,9 @@ func validateBuildTags() bool {
 		hasAMD64 = true
 	case "sparc64":
 		hasSPARC64 = true
+	case "all":
+		hasAMD64 = true
+		hasSPARC64 = true
 	default:
 		fmt.Fprintln(os.Stderr, "unsupported Architecture: ", archTag)
 		return false
@@ -140,6 +146,9 @@ func validateBuildTags() bool {
 	case "gc":
 		hasGC = true
 	case "gccgo":
+		hasGCCGO = true
+	case "all":
+		hasGC = true
 		hasGCCGO = true
 	default:
 		fmt.Fprintln(os.Stderr, "unsupported Go compiler: ", compilerTag)
@@ -164,9 +173,9 @@ func validateBuildTags() bool {
 func usage() {
 	fmt.Fprintf(os.Stderr, "usage: go run mksyscall_solaris_sparc64.go [-all] [-tags x,y,z] [file ...]\n")
 	fmt.Fprintln(os.Stderr, "all: if defined, will generate all supported combinations and ignore tags")
-	fmt.Fprintln(os.Stderr, "x: target OS, must be solaris or illumos")
-	fmt.Fprintln(os.Stderr, "y: target CPU arch, must be amd64 or sparc64")
-	fmt.Fprintln(os.Stderr, "z: target Go compiler, must be gc or gccgo")
+	fmt.Fprintln(os.Stderr, "x: target OS, must be solaris or illumos or all")
+	fmt.Fprintln(os.Stderr, "y: target CPU arch, must be amd64 or sparc64 or all")
+	fmt.Fprintln(os.Stderr, "z: target Go compiler, must be gc or gccgo or all")
 	os.Exit(1)
 }
 
